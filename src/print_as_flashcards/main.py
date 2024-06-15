@@ -14,7 +14,7 @@ License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
 
 import re, urllib
 from aqt.qt import *
-from anki.utils import is_win
+from anki.utils import isWin
 from anki.hooks import runHook, addHook
 from aqt.utils import openLink, tooltip
 from aqt import mw
@@ -24,6 +24,8 @@ from .config import local_conf
 
 CARDS_PER_ROW = local_conf["cards_per_row"]
 ROWS_PER_TABLE = local_conf["rows_per_table"]
+PADDING_X = local_conf["padding_x"]
+PADDING_Y = local_conf["padding_y"]
 CARDS_PER_TABLE = CARDS_PER_ROW * ROWS_PER_TABLE
 
 def sortFieldOrderCids(did):
@@ -40,8 +42,14 @@ def onPrint(cids=None):
         ids = cids
     else:
         ids = sortFieldOrderCids(mw.col.decks.selected())
+    def esc(s):
+        # strip off the repeated question in answer if exists
+        #s = re.sub("(?si)^.*<hr id=answer>\n*", "", s)
+        # remove type answer
+        s = re.sub("\[\[type:[^]]+\]\]", "", s)
+        return s
     def prefixed_path(path):
-        if is_win:
+        if isWin:
             prefix = "file:///"
         else:
             prefix = "file://"
@@ -61,24 +69,27 @@ table {{ table-layout: fixed;
 	height: 100%; }}
 .a td {{ border: none; }}
 tr    {{ height: {height:.0f}%; }}
+center {{ padding: {padding_y}px {padding_x}px; }}
 @page {{ size: landscape; }}
 </style></head><body>""".format(width = 100 / CARDS_PER_ROW, \
-                                height = 100 / ROWS_PER_TABLE))
+                                height = 100 / ROWS_PER_TABLE, \
+                                padding_y=PADDING_Y, \
+                                padding_x=PADDING_X ))
     ans = []
     que = []
     processed_notes = []
     mw.progress.start(immediate=True)
     for j, cid in enumerate(ids):
-        c = mw.col.get_card(cid)
+        c = mw.col.getCard(cid)
         if c.note().id not in processed_notes:
-            q = c.question()
-            a = c.answer()
+            q = esc(c._getQA(True, False)['a']).split('<hr id=answer>')[0]
+            a = esc(c._getQA(True, False)['a']).split('<hr id=answer>')[1]
             que.append(q)
             ans.append(a)
             processed_notes.append(c.note().id)
     
     if (len(que) % CARDS_PER_TABLE != 0):
-        for i in range(CARDS_PER_TABLE - len(que) % CARDS_PER_TABLE):
+        for i in range(len(que) % CARDS_PER_TABLE):
             que.append("")
             ans.append("")
     
@@ -102,9 +113,14 @@ tr    {{ height: {height:.0f}%; }}
     buf.write("</body></html>")
     mw.progress.finish()
     buf.close()
-    tooltip("Creating printable flashcards...", period=3000)
+    tooltip(_("Loading..."), period=1000)
     QDesktopServices.openUrl(QUrl.fromUserInput(prefixed_path(path)))
 
+q = QAction(mw)
+q.setText("Make Flashcards")
+q.setShortcut(QKeySequence("Ctrl+M"))
+mw.form.menuTools.addAction(q)
+q.triggered.connect(onPrint)
 def addShortcut(browser):
     a = QAction("&Make Flashcards", browser)
     a.setShortcut(QKeySequence("Ctrl+M"))

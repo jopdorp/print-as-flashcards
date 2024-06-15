@@ -1,0 +1,12 @@
+{
+    "name": "Print as Flashcards",
+    "package": "556159936",
+    "ankiweb_id": "556159936",
+    "author": "zjosua",
+    "version": "v0.1.0",
+    "homepage": "https://github.com/zjosua/print-as-flashcards",
+    "conflicts": [
+        "print_as_flashcards"
+    ],
+    "mod": 1560948558
+}
